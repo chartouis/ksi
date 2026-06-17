@@ -3,6 +3,7 @@ package ksi
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"runtime/debug"
@@ -15,7 +16,7 @@ type ksi struct {
 	postchain *funChain // post funChain is a slice of funcs that are run after the given handler
 }
 
-type KsiFunc func(*http.Request) Response
+type KsiFunc func(*http.Request) (Response, error)
 
 func NewKsi(addr string) *ksi {
 	k := ksi{addr: addr, mux: http.NewServeMux()}
@@ -48,7 +49,18 @@ func (k *ksi) Middleware(f KsiFunc) http.HandlerFunc {
 		if !k.preChain.runAll(w, r) {
 			return
 		}
-		res := f(r)
+		res, err := f(r)
+		if err != nil {
+			if httpErr, ok := errors.AsType[HTTPError](err); ok {
+				log.Print(httpErr.Status, " : ", httpErr.Message)
+				WriteError(w, httpErr)
+				return
+			} else {
+				WriteError(w, HTTPError{Status: 400, Message: ""})
+				return
+			}
+		}
+
 		w.WriteHeader(res.Status)
 		mergeHeaders(w.Header(), res.Headers)
 		if err := json.NewEncoder(w).Encode(res.Body); err != nil && res.Body != nil {
