@@ -34,6 +34,15 @@ func (k *ksi) SetPostChain(f ...ChainLink) {
 }
 
 func (k *ksi) Start() error {
+	log.Print(`
+ ___  __        ________       ___     
+|\  \|\  \     |\   ____\     |\  \    
+\ \  \/  /|_   \ \  \___|_    \ \  \   
+ \ \   ___  \   \ \_____  \    \ \  \  
+  \ \  \\ \  \ __\|____|\  \  __\ \  \ 
+   \ \__\\ \__|\__\____\_\  \|\__\ \__\
+    \|__| \|__\|__|\_________\|__|\|__|
+                  \|_________|         `)
 	log.Print("Server started on - " + k.addr)
 	return http.ListenAndServe(k.addr, k.mux)
 }
