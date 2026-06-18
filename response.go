@@ -29,3 +29,7 @@ func (r *Response) NoContent() Response {
 	r.Body = nil
 	return *r
 }
+
+func WithHeaders(h http.Header) Response {
+	return Response{Headers: h}
+}
