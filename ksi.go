@@ -70,8 +70,8 @@ func (k *ksi) Middleware(f KsiFunc) http.HandlerFunc {
 			}
 		}
 
-		w.WriteHeader(res.Status)
 		mergeHeaders(w.Header(), res.Headers)
+		w.WriteHeader(res.Status)
 		if err := json.NewEncoder(w).Encode(res.Body); err != nil && res.Body != nil {
 			log.Panic("Couldn't parse body into JSON")
 		}
