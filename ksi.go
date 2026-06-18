@@ -13,7 +13,7 @@ type ksi struct {
 	addr      string
 	mux       *http.ServeMux
 	preChain  *funChain // pre funChain is a slice of funcs that are run before the given handler
-	postchain *funChain // post funChain is a slice of funcs that are run after the given handler
+	postChain *funChain // post funChain is a slice of funcs that are run after the given handler
 }
 
 type KsiFunc func(*http.Request) (Response, error)
@@ -21,7 +21,7 @@ type KsiFunc func(*http.Request) (Response, error)
 func NewKsi(addr string) *ksi {
 	k := ksi{addr: addr, mux: http.NewServeMux()}
 	k.preChain = NewFunChain()
-	k.postchain = NewFunChain()
+	k.postChain = NewFunChain()
 	return &k
 }
 
@@ -30,7 +30,7 @@ func (k *ksi) SetPreChain(f ...ChainLink) {
 }
 
 func (k *ksi) SetPostChain(f ...ChainLink) {
-	k.postchain = NewFunChain(f...)
+	k.postChain = NewFunChain(f...)
 }
 
 func (k *ksi) Start() error {
@@ -76,7 +76,7 @@ func (k *ksi) Middleware(f KsiFunc) http.HandlerFunc {
 			log.Panic("Couldn't parse body into JSON")
 		}
 
-		if !k.postchain.runAll(w, r) {
+		if !k.postChain.runAll(w, r) {
 			return
 		}
 	}
