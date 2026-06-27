@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"reflect"
 	"runtime/debug"
 )
 
@@ -16,7 +17,7 @@ type ksi struct {
 	postChain *funChain // post funChain is a slice of funcs that are run after the given handler
 }
 
-type KsiFunc func(*http.Request) (Response, error)
+type KsiFunc = any
 
 func NewKsi(addr string) *ksi {
 	k := ksi{addr: addr, mux: http.NewServeMux()}
@@ -55,10 +56,13 @@ func (k *ksi) Handle(pattern string, handler KsiFunc) {
 func (k *ksi) Middleware(f KsiFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer forceRecover(w)
+
+		isFunc(f)
+
 		if !k.preChain.runAll(w, r) {
 			return
 		}
-		res, err := f(r)
+		res, err := injectAndRun(w, r, f)
 		if err != nil {
 			if httpErr, ok := errors.AsType[HTTPError](err); ok {
 				log.Print(httpErr.Status, " : ", httpErr.Message)
@@ -80,6 +84,32 @@ func (k *ksi) Middleware(f KsiFunc) http.HandlerFunc {
 			return
 		}
 	}
+}
+
+func isFunc(f any) {
+	if reflect.TypeOf(f).Kind() != reflect.Func {
+		panic("ksi: Handler must be a function")
+	}
+}
+
+func injectAndRun(w http.ResponseWriter, r *http.Request, f KsiFunc) (Response, error) {
+	t := reflect.TypeOf(f)
+	args := []reflect.Value{}
+	for i := range 2 {
+		p := t.In(i)
+		if p == reflect.TypeFor[*http.Request]() {
+			args = append(args, reflect.ValueOf(r))
+		}
+		if p == reflect.TypeFor[http.ResponseWriter]() {
+			args = append(args, reflect.ValueOf(w))
+		}
+	}
+	v := reflect.ValueOf(f)
+	results := v.Call(args)
+	resp := results[0].Interface().(Response)
+	err, _ := results[1].Interface().(error)
+
+	return resp, err
 }
 
 func mergeHeaders(dst, src http.Header) {
