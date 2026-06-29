@@ -4,6 +4,7 @@ package ksi
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"reflect"
@@ -58,6 +59,7 @@ func (k *ksi) Middleware(f KsiFunc) http.HandlerFunc {
 		defer forceRecover(w)
 
 		isFunc(f)
+		validateHandler(reflect.TypeOf(f))
 
 		if !k.preChain.runAll(w, r) {
 			return
@@ -92,23 +94,42 @@ func isFunc(f any) {
 	}
 }
 
+func validateHandler(t reflect.Type) {
+	structCount := 0
+	for p := range t.Ins() {
+		if p != reflect.TypeFor[*http.Request]() &&
+			p != reflect.TypeFor[http.ResponseWriter]() {
+			if p.Kind() != reflect.Struct {
+				panic(fmt.Sprintf("ksi: unsupported parameter type: %s", p.Name()))
+			}
+			structCount++
+			if structCount > 1 {
+				panic("ksi: only one struct body parameter is allowed")
+			}
+		}
+	}
+}
+
 func injectAndRun(w http.ResponseWriter, r *http.Request, f KsiFunc) (Response, error) {
 	t := reflect.TypeOf(f)
 	args := []reflect.Value{}
-	for i := range 2 {
-		p := t.In(i)
+	for p := range t.Ins() {
 		if p == reflect.TypeFor[*http.Request]() {
 			args = append(args, reflect.ValueOf(r))
-		}
-		if p == reflect.TypeFor[http.ResponseWriter]() {
+		} else if p == reflect.TypeFor[http.ResponseWriter]() {
 			args = append(args, reflect.ValueOf(w))
+		} else {
+			ptr := reflect.New(p)
+			if err := json.NewDecoder(r.Body).Decode(ptr.Interface()); err != nil {
+				return Response{}, HTTPError{Status: 400, Message: "invalid request body"}
+			}
+			args = append(args, ptr.Elem())
 		}
 	}
 	v := reflect.ValueOf(f)
 	results := v.Call(args)
 	resp := results[0].Interface().(Response)
 	err, _ := results[1].Interface().(error)
-
 	return resp, err
 }
 
