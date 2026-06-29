@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func testHandler(w http.ResponseWriter, r *http.Request) (Response, error) {
+func testHandler(w http.ResponseWriter, r *http.Request) (response, error) {
 	log.Printf("method: %s, path: %s", r.Method, r.URL.Path)
 	log.Printf("user-agent: %s", r.Header.Get("User-Agent"))
 	w.Header().Set("X-Test", "ksi-reflection")
@@ -61,9 +61,9 @@ type createRequest struct {
 	Name string `json:"name"`
 }
 
-func testHandlerWithBody(body createRequest) (Response, error) {
+func testHandlerWithBody(body createRequest) (response, error) {
 	if body.Name == "" {
-		return Response{}, HTTPError{Status: 400, Message: "name is required"}
+		return response{}, HTTPError{Status: 400, Message: "name is required"}
 	}
 	return Ok(map[string]string{"name": body.Name}), nil
 }

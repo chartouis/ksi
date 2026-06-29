@@ -76,9 +76,9 @@ func (k *ksi) Middleware(f KsiFunc) http.HandlerFunc {
 			}
 		}
 
-		mergeHeaders(w.Header(), res.Headers)
-		w.WriteHeader(res.Status)
-		if err := json.NewEncoder(w).Encode(res.Body); err != nil && res.Body != nil {
+		mergeHeaders(w.Header(), res.headers)
+		w.WriteHeader(res.status)
+		if err := json.NewEncoder(w).Encode(res.body); err != nil && res.body != nil {
 			log.Panic("Couldn't parse body into JSON")
 		}
 
@@ -110,7 +110,7 @@ func validateHandler(t reflect.Type) {
 	}
 }
 
-func injectAndRun(w http.ResponseWriter, r *http.Request, f KsiFunc) (Response, error) {
+func injectAndRun(w http.ResponseWriter, r *http.Request, f KsiFunc) (response, error) {
 	t := reflect.TypeOf(f)
 	args := []reflect.Value{}
 	for p := range t.Ins() {
@@ -121,14 +121,14 @@ func injectAndRun(w http.ResponseWriter, r *http.Request, f KsiFunc) (Response, 
 		} else {
 			ptr := reflect.New(p)
 			if err := json.NewDecoder(r.Body).Decode(ptr.Interface()); err != nil {
-				return Response{}, HTTPError{Status: 400, Message: "invalid request body"}
+				return response{}, HTTPError{Status: 400, Message: "invalid request body"}
 			}
 			args = append(args, ptr.Elem())
 		}
 	}
 	v := reflect.ValueOf(f)
 	results := v.Call(args)
-	resp := results[0].Interface().(Response)
+	resp := results[0].Interface().(response)
 	err, _ := results[1].Interface().(error)
 	return resp, err
 }
